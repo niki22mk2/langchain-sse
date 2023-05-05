@@ -1,0 +1,10 @@
+fastapi
+httpx
+langchain
+pydantic
+python-dotenv
+sse-starlette
+python-dotenv
+uvicorn
+tiktoken
+openai
