@@ -81,12 +81,6 @@ async def start_llm(stream_handler: CustomAsyncIteratorCallbackHandler, request:
 
     await conversation.apredict(input=request.messages[-1]["content"], callbacks=[stream_handler])
 
-
-@app.on_event("startup")
-async def startup() -> None:
-    print("LangChain API is ready")
-
-
 @app.post("/chat")
 async def chat(request: ChatRequest) -> EventSourceResponse:
     stream_handler = CustomAsyncIteratorCallbackHandler()
