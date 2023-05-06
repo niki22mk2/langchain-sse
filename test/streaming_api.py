@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Union, Optional
+from typing import Dict, List, Optional
 
 import dotenv
 from fastapi import FastAPI
@@ -7,13 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from functools import lru_cache
-
-from langchain.prompts import (
-    ChatPromptTemplate,
-    HumanMessagePromptTemplate,
-    MessagesPlaceholder,
-    SystemMessagePromptTemplate,
-)
 
 from callback import CustomAsyncIteratorCallbackHandler
 from manager import ConversationManager
@@ -35,42 +28,33 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = 0.7
     model: Optional[str] = "gpt-3.5-turbo"
     timeout: Optional[float] = 60.0
+    max_tokens: Optional[int] = 400
     conversation_id: Optional[str] = "default"
 
 
 @lru_cache(maxsize=10)
 def get_conversation_manager(
-    conversation_id: str, system_prompt: str, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo"
+    conversation_id: str, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = 400
 ) -> ConversationManager:
 
-    human_message_template = "".join([
-        "{information}\n\n",
-        "ユーザの発言:\n",
-        "{input}\n\n",
-        "発言の例やルールを守ったあなたの返答:"
-    ])
-
-    prompt = ChatPromptTemplate.from_messages([
-        SystemMessagePromptTemplate.from_template(system_prompt),
-        MessagesPlaceholder(variable_name="history"),
-        HumanMessagePromptTemplate.from_template(human_message_template)
-    ])
-
     return ConversationManager(
-        conversation_id=conversation_id, prompt=prompt, input_variables=["information"], temperature=temperature, timeout=timeout, model=model)
+        conversation_id=conversation_id, input_variables=["information"], temperature=temperature, timeout=timeout, model=model, max_tokens=max_tokens)
 
 
 async def start_llm(stream_handler: CustomAsyncIteratorCallbackHandler, request: ChatRequest) -> None:
-    system_prompt = request.messages[0]["content"]
+    system_message = request.messages[0]["content"]
     user_message = request.messages[-1]["content"]
 
     conversation_manager = get_conversation_manager(
-        request.conversation_id, system_prompt, request.temperature, request.timeout, request.model)
+        conversation_id=request.conversation_id, temperature=request.temperature, timeout=request.timeout, model=request.model)
 
-    await conversation_manager.generate_message(stream_handler=stream_handler, input=user_message, information="")
+    await conversation_manager.generate_message(stream_handler=stream_handler,input=user_message, system=system_message, information="")
 
     conversation_manager.save_conversation()
 
+@app.on_event("startup")
+async def startup() -> None:
+    print("LangChain API is ready")
 
 @app.post("/chat")
 async def chat(request: ChatRequest) -> EventSourceResponse:
