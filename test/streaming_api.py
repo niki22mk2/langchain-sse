@@ -28,13 +28,13 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = 0.7
     model: Optional[str] = "gpt-3.5-turbo"
     timeout: Optional[float] = 60.0
-    max_tokens: Optional[int] = 400
+    max_tokens: Optional[int] = None
     conversation_id: Optional[str] = "default"
 
 
 @lru_cache(maxsize=10)
 def get_conversation_manager(
-    conversation_id: str, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = 400
+    conversation_id: str, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = None
 ) -> ConversationManager:
 
     return ConversationManager(

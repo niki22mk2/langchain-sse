@@ -1,10 +1,13 @@
-from typing import Any, Dict, List, Optional
+import tiktoken
+from typing import Any, Dict, List, Optional, Union
+from pydantic import Field
 
 from langchain.memory.chat_memory import BaseChatMemory
-from langchain.schema import BaseMessage, get_buffer_string
+from langchain.schema import BaseMessage, get_buffer_string, Document
 from langchain.memory import VectorStoreRetrieverMemory
+from langchain.memory.utils import get_prompt_input_key
 
-import tiktoken
+from retriever import TimeWeightedVectorStoreRetrieverWithPersistence
 
 class ConversationTokenBufferMemory(BaseChatMemory):
     """Buffer for storing conversation memory."""
@@ -59,14 +62,6 @@ class ConversationTokenBufferMemory(BaseChatMemory):
                 curr_buffer_length = sum([len(encoding.encode(get_buffer_string([m]))) for m in buffer])
 
 
-from pydantic import Field
-
-from langchain.memory.chat_memory import BaseMemory
-from langchain.memory.utils import get_prompt_input_key
-from langchain.schema import Document
-from langchain.vectorstores.base import VectorStoreRetriever
-from retriever import TimeWeightedVectorStoreRetrieverWithPersistence
-
 class ConversationTokenBufferVectorMemory(BaseChatMemory):
     """Buffer for storing conversation memory."""
 
@@ -94,7 +89,22 @@ class ConversationTokenBufferVectorMemory(BaseChatMemory):
         else:
             return [self.memory_key, self.relevant_key]
 
+    def _get_prompt_input_key(self, inputs: Dict[str, Any]) -> str:
+        """Get the input key for the prompt."""
+        if self.input_key is None:
+            return get_prompt_input_key(inputs, self.memory_variables)
+        return self.input_key
+
     def load_memory_variables(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        input_key = self._get_prompt_input_key(inputs)
+        query = inputs[input_key]
+        try:
+          docs = self.retriever.get_relevant_documents(query)
+          result: Union[List[Document], str]
+          result = "\n".join([doc.page_content for doc in docs])
+        except:
+          result = ""
+
         """Return history buffer."""
         buffer: Any = self.buffer
         if self.return_messages:
@@ -105,7 +115,24 @@ class ConversationTokenBufferVectorMemory(BaseChatMemory):
                 human_prefix=self.human_prefix,
                 ai_prefix=self.ai_prefix,
             )
-        return {self.memory_key: final_buffer}
+        return {self.memory_key: final_buffer, self.relevant_key: result}
+
+    def _form_documents(
+        self, inputs: Dict[str, Any], outputs: Dict[str, str]
+    ) -> List[Document]:
+        """Format context from this conversation to buffer."""
+        excluded_keys = [self.memory_key, self.relevant_key] + self.input_variables
+
+        # Filter inputs by excluding the specified keys
+        filtered_inputs = {k: v for k, v in inputs.items() if k not in excluded_keys}
+
+        # Add human_prefix and ai_prefix to the respective keys
+        input_texts = [f"{self.human_prefix if k == 'input' else k}: {v}" for k, v in filtered_inputs.items()]
+        output_texts = [f"{self.ai_prefix if k == 'response' else k}: {v}" for k, v in outputs.items()]
+
+        texts = input_texts + output_texts
+        page_content = "\n".join(texts)
+        return [Document(page_content=page_content)]
 
     def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, str]) -> None:
         """Save context from this conversation to buffer. Pruned."""
@@ -114,9 +141,13 @@ class ConversationTokenBufferVectorMemory(BaseChatMemory):
         encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
         buffer = self.chat_memory.messages
         curr_buffer_length = sum([len(encoding.encode(get_buffer_string([m]))) for m in buffer])
-        print(curr_buffer_length)
+        print(buffer, curr_buffer_length)
         if curr_buffer_length > self.max_token_limit:
             pruned_memory = []
             while curr_buffer_length > self.max_token_limit:
                 pruned_memory.append(buffer.pop(0))
                 curr_buffer_length = sum([len(encoding.encode(get_buffer_string([m]))) for m in buffer])
+
+        documents = self._form_documents(inputs, outputs)
+        print(documents)
+        self.retriever.add_documents(documents)

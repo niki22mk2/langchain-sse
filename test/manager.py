@@ -10,6 +10,7 @@ from callback import CustomAsyncIteratorCallbackHandler
 from memory import ConversationTokenBufferMemory, ConversationTokenBufferVectorMemory
 from template import PROMPT
 
+from retriever import TimeWeightedVectorStoreRetrieverWithPersistence
 
 
 class ConversationManager:
@@ -24,15 +25,16 @@ class ConversationManager:
             request_timeout=timeout,
             max_tokens=max_tokens
         )
-        # self.chain = ConversationChain(
-        #     llm=chat,
-        #     memory=ConversationTokenBufferMemory(return_messages=True, input_variables=self.input_variables),
-        #     prompt=PROMPT
-        # )
-
+        self.retriever=TimeWeightedVectorStoreRetrieverWithPersistence.create_time_weighted_retriever(id=self.conversation_id)
         self.chain = ConversationChain(
             llm=chat,
-            memory=ConversationTokenBufferVectorMemory(return_messages=True, retriever=vectorstore.as_retriever(),input_variables=self.input_variables),
+            memory=ConversationTokenBufferVectorMemory(
+                return_messages=True, 
+                retriever=self.retriever,
+                input_variables=self.input_variables,
+                max_token_limit=800
+            ),
+            verbose=True,
             prompt=PROMPT
         )
         self.load_conversation()
@@ -46,10 +48,14 @@ class ConversationManager:
         with open(f"memory/{self.conversation_id}.json", "w") as f:
             json.dump(memory_dict, f, ensure_ascii=False, indent=4)
 
+        self.retriever.save_memory_stream()
+
     def load_conversation(self) -> None:
         if os.path.exists(f"memory/{self.conversation_id}.json"):
             with open(f"memory/{self.conversation_id}.json", "r") as f:
                 self.chain.memory.chat_memory.messages = messages_from_dict(json.load(f))
+
+        self.retriever.load_memory_stream()
 
     async def generate_message(self, stream_handler: CustomAsyncIteratorCallbackHandler,system: str, input: str, **kwargs) -> str:
         

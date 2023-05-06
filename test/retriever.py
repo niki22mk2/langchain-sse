@@ -13,29 +13,29 @@ from langchain.docstore import InMemoryDocstore
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 
-def create_time_weighted_retriever(persistent_dir: str ="memory", id: str = "default", k=1):
-    """Create a new vector store retriever unique to the agent."""
-    # Define your embedding model
-    embeddings_model = OpenAIEmbeddings()
-    # Initialize the vectorstore as empty
-    if not os.path.exists(persistent_dir):
-        os.makedirs(persistent_dir)
-    
-    persistent_path = os.path.join(persistent_dir, id)
-
-    if os.path.exists(persistent_path):
-        vectorstore = FAISS.load_local(persistent_path, embeddings_model)
-    else:
-        embedding_size = 1536
-        index = faiss.IndexFlatL2(embedding_size)
-        vectorstore = FAISS(embeddings_model.embed_query, index, InMemoryDocstore({}), {})
-    retriever = TimeWeightedVectorStoreRetrieverWithPersistence(vectorstore=vectorstore, k=k, persistent_path=persistent_path) 
-    retriever.load_memory_stream()
-    return retriever
-
 
 class TimeWeightedVectorStoreRetrieverWithPersistence(TimeWeightedVectorStoreRetriever):
     persistent_path: str
+
+    @classmethod
+    def create_time_weighted_retriever(cls, persistent_dir: str = "memory", id: str = "default", k=1):
+        """Create a new vector store retriever unique to the agent."""
+        # Define your embedding model
+        embeddings_model = OpenAIEmbeddings()
+        # Initialize the vectorstore as empty
+        if not os.path.exists(persistent_dir):
+            os.makedirs(persistent_dir)
+        
+        persistent_path = os.path.join(persistent_dir, id)
+
+        if os.path.exists(persistent_path):
+            vectorstore = FAISS.load_local(persistent_path, embeddings_model)
+        else:
+            embedding_size = 1536
+            index = faiss.IndexFlatL2(embedding_size)
+            vectorstore = FAISS(embeddings_model.embed_query, index, InMemoryDocstore({}), {})
+        retriever = TimeWeightedVectorStoreRetrieverWithPersistence(vectorstore=vectorstore, k=k, persistent_path=persistent_path, search_kwargs={"k": k, "score_threshold": 0.6}) 
+        return retriever
 
     def get_relevant_documents(self, query: str) -> List[Document]:
         """Return documents that are relevant to the query."""

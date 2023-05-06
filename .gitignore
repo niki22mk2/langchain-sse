@@ -18,3 +18,4 @@ tmp/
 chara/
 db*/
 memory/
+test.py

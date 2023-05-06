@@ -8,6 +8,7 @@ from langchain.prompts import (
 system_prompt_template = "{system}"
 
 human_message_template = "".join([
+    "{relevant}\n",
     "{information}\n\n",
     "ユーザのメッセージ:\n",
     "{input}\n\n",
