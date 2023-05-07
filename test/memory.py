@@ -4,7 +4,6 @@ from pydantic import Field
 
 from langchain.memory.chat_memory import BaseChatMemory
 from langchain.schema import BaseMessage, get_buffer_string, Document
-from langchain.memory import VectorStoreRetrieverMemory
 from langchain.memory.utils import get_prompt_input_key
 
 from retriever import TimeWeightedVectorStoreRetrieverWithPersistence
@@ -104,6 +103,7 @@ class ConversationTokenBufferVectorMemory(BaseChatMemory):
           result = "\n".join([doc.page_content for doc in docs])
         except:
           result = ""
+        print("relevant_doc\n" + result)
 
         """Return history buffer."""
         buffer: Any = self.buffer
@@ -121,7 +121,8 @@ class ConversationTokenBufferVectorMemory(BaseChatMemory):
         self, inputs: Dict[str, Any], outputs: Dict[str, str]
     ) -> List[Document]:
         """Format context from this conversation to buffer."""
-        excluded_keys = [self.memory_key, self.relevant_key] + self.input_variables
+        excluded_keys = self.memory_variables
+        # excluded_keys = [self.memory_key, self.relevant_key] + self.input_variables
 
         # Filter inputs by excluding the specified keys
         filtered_inputs = {k: v for k, v in inputs.items() if k not in excluded_keys}
@@ -141,13 +142,15 @@ class ConversationTokenBufferVectorMemory(BaseChatMemory):
         encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
         buffer = self.chat_memory.messages
         curr_buffer_length = sum([len(encoding.encode(get_buffer_string([m]))) for m in buffer])
-        print(buffer, curr_buffer_length)
+        print("memory token length: ", curr_buffer_length)
         if curr_buffer_length > self.max_token_limit:
             pruned_memory = []
             while curr_buffer_length > self.max_token_limit:
                 pruned_memory.append(buffer.pop(0))
                 curr_buffer_length = sum([len(encoding.encode(get_buffer_string([m]))) for m in buffer])
 
+        print(inputs.get('information'))
+        print(inputs.get('relevant'))
+
         documents = self._form_documents(inputs, outputs)
-        print(documents)
         self.retriever.add_documents(documents)

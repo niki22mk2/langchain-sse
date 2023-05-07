@@ -7,14 +7,15 @@ from langchain.chains import ConversationChain
 from langchain.schema import messages_from_dict, messages_to_dict
 
 from callback import CustomAsyncIteratorCallbackHandler
-from memory import ConversationTokenBufferMemory, ConversationTokenBufferVectorMemory
+from memory import ConversationTokenBufferVectorMemory
 from template import PROMPT
 
 from retriever import TimeWeightedVectorStoreRetrieverWithPersistence
 
+from agent import zeroshot
 
 class ConversationManager:
-    def __init__(self, conversation_id: str, input_variables: Optional[List[str]] = None, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = 400):
+    def __init__(self, conversation_id: str, input_variables: Optional[List[str]] = None, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = None):
         self.conversation_id = conversation_id
         self.input_variables = input_variables
         self.input_variables.append("system")
@@ -34,7 +35,6 @@ class ConversationManager:
                 input_variables=self.input_variables,
                 max_token_limit=800
             ),
-            verbose=True,
             prompt=PROMPT
         )
         self.load_conversation()
@@ -62,5 +62,15 @@ class ConversationManager:
         if set(kwargs.keys()) != (set(self.input_variables) - {"system"}):
             raise ValueError("Some required input variables are missing or extraneous variables are provided")
 
-        print(self.chain.memory.chat_memory.messages)
         return await self.chain.apredict(input=input, system=system, callbacks=[stream_handler], **kwargs)
+
+    def zeroshot_agent(self, user_message):
+        from langchain.schema import get_buffer_string
+
+        recent_history = get_buffer_string(self.chain.memory.chat_memory.messages[-3:])
+        try:
+            res = zeroshot(user_message, history=recent_history)
+        except:
+            res = None
+
+        return res

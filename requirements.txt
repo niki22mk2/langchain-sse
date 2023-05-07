@@ -12,3 +12,9 @@ openai
 
 pytz
 faiss-cpu
+
+pyppeteer
+extractcontent3
+beautifulsoup4
+readability
+google-api-python-client

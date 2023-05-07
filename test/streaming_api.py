@@ -11,6 +11,8 @@ from functools import lru_cache
 from callback import CustomAsyncIteratorCallbackHandler
 from manager import ConversationManager
 
+from tools.utils import get_date
+
 dotenv.load_dotenv()
 
 app = FastAPI()
@@ -38,7 +40,13 @@ def get_conversation_manager(
 ) -> ConversationManager:
 
     return ConversationManager(
-        conversation_id=conversation_id, input_variables=["information"], temperature=temperature, timeout=timeout, model=model, max_tokens=max_tokens)
+        conversation_id=conversation_id, 
+        input_variables=["information", "date"], 
+        temperature=temperature, 
+        timeout=timeout, 
+        model=model, 
+        max_tokens=max_tokens
+        )
 
 
 async def start_llm(stream_handler: CustomAsyncIteratorCallbackHandler, request: ChatRequest) -> None:
@@ -47,8 +55,11 @@ async def start_llm(stream_handler: CustomAsyncIteratorCallbackHandler, request:
 
     conversation_manager = get_conversation_manager(
         conversation_id=request.conversation_id, temperature=request.temperature, timeout=request.timeout, model=request.model)
+    
+    date,now = get_date()
+    information = conversation_manager.zeroshot_agent(user_message)
 
-    await conversation_manager.generate_message(stream_handler=stream_handler,input=user_message, system=system_message, information="")
+    await conversation_manager.generate_message(stream_handler=stream_handler,input=user_message, system=system_message, information=information, date=date)
 
     conversation_manager.save_conversation()
 
@@ -65,9 +76,11 @@ async def chat(request: ChatRequest) -> EventSourceResponse:
     async def event_generator(acallback: CustomAsyncIteratorCallbackHandler):
         ait = acallback.aiter()
 
+        print("Starting stream")
         async for token in ait:
             yield token
 
+        print("Stream finished")
         yield "[DONE]"
 
     return EventSourceResponse(event_generator(stream_handler))

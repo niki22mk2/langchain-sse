@@ -7,13 +7,19 @@ from langchain.prompts import (
 
 system_prompt_template = "{system}"
 
-human_message_template = "".join([
-    "{relevant}\n",
-    "{information}\n\n",
-    "ユーザのメッセージ:\n",
-    "{input}\n\n",
-    "発言の例やルールを守ったあなたの返答:"
-])
+human_message_template = """
+{date}
+
+（参考情報）関連するかもしれない過去の会話:
+{relevant}
+
+（参考情報）その他情報:
+{information}
+
+ユーザのメッセージ:
+{input}
+
+会話のルールに従ったあなたの返答:"""
 
 PROMPT = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(system_prompt_template),
