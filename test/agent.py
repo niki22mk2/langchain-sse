@@ -5,11 +5,14 @@ from langchain.agents import ZeroShotAgent, AgentExecutor, Tool, load_tools, ini
 from tools.weather import get_weather
 from tools.utils import get_date
 
-prefix = """Answer the following questions as best you can. If you have no specific information, just answer "no information".
+prefix = """
+Answer the following questions as best you can. If you have no specific information, just answer "no information".
 You have access to the following tools:
 Please observe the input format of each tool. Do not translate the language of the question."""
 
 suffix = """Begin!
+Current Date: {date}
+
 Recent Chat history:
 {history}
 
@@ -38,6 +41,6 @@ def zeroshot(query, history=""):
 
     agent = initialize_agent(tools, llm, agent="chat-zero-shot-react-description")
 
-    res = agent_executor.run(input=query, history=history)
+    res = agent_executor.run(input=query, history=history, date=get_date())
 
     return res

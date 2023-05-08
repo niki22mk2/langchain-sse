@@ -15,14 +15,14 @@ from retriever import TimeWeightedVectorStoreRetrieverWithPersistence
 from agent import zeroshot
 
 class ConversationManager:
-    def __init__(self, conversation_id: str, input_variables: Optional[List[str]] = None, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = None):
+    def __init__(self, conversation_id: str, input_variables: Optional[List[str]] = None, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = None, ai_name: Optional[str] = "AI", human_name: Optional[str] = "Human"):
         self.conversation_id = conversation_id
         self.input_variables = input_variables
         self.input_variables.append("system")
         chat = ChatOpenAI(
             temperature=temperature, 
             streaming=True, 
-            model=model, 
+            model_name=model, 
             request_timeout=timeout,
             max_tokens=max_tokens
         )
@@ -33,7 +33,9 @@ class ConversationManager:
                 return_messages=True, 
                 retriever=self.retriever,
                 input_variables=self.input_variables,
-                max_token_limit=800
+                max_token_limit=600,
+                ai_prefix=ai_name,
+                human_prefix=human_name
             ),
             prompt=PROMPT
         )

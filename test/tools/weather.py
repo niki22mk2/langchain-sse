@@ -95,4 +95,3 @@ def get_weather(query):
 
     return formatted_weather
 
-print(get_weather("横浜の明後日の天気"))

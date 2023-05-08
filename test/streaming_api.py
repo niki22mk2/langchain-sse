@@ -32,21 +32,25 @@ class ChatRequest(BaseModel):
     timeout: Optional[float] = 60.0
     max_tokens: Optional[int] = None
     conversation_id: Optional[str] = "default"
+    ai_name: Optional[str] = "AI",
+    human_name: Optional[str] = "Human"
 
 
 @lru_cache(maxsize=10)
 def get_conversation_manager(
-    conversation_id: str, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = None
+    conversation_id: str, temperature: Optional[float] = 0.7, timeout: Optional[float] = 60.0, model: Optional[str] = "gpt-3.5-turbo", max_tokens: Optional[int] = None, ai_name: Optional[str] = "AI", human_name: Optional[str] = "Human"
 ) -> ConversationManager:
 
     return ConversationManager(
-        conversation_id=conversation_id, 
-        input_variables=["information", "date"], 
-        temperature=temperature, 
-        timeout=timeout, 
-        model=model, 
-        max_tokens=max_tokens
-        )
+        conversation_id=conversation_id,
+        input_variables=["information", "date"],
+        temperature=temperature,
+        timeout=timeout,
+        model=model,
+        max_tokens=max_tokens,
+        ai_name=ai_name,
+        human_name=human_name,
+    )
 
 
 async def start_llm(stream_handler: CustomAsyncIteratorCallbackHandler, request: ChatRequest) -> None:
@@ -54,18 +58,27 @@ async def start_llm(stream_handler: CustomAsyncIteratorCallbackHandler, request:
     user_message = request.messages[-1]["content"]
 
     conversation_manager = get_conversation_manager(
-        conversation_id=request.conversation_id, temperature=request.temperature, timeout=request.timeout, model=request.model)
-    
-    date,now = get_date()
+        conversation_id=request.conversation_id,
+        temperature=request.temperature,
+        timeout=request.timeout,
+        model=request.model,
+        ai_name=request.ai_name,
+        human_name=request.human_name,
+    )
+
     information = conversation_manager.zeroshot_agent(user_message)
 
-    await conversation_manager.generate_message(stream_handler=stream_handler,input=user_message, system=system_message, information=information, date=date)
+    print("use model:", request.model)
+
+    await conversation_manager.generate_message(stream_handler=stream_handler, input=user_message, system=system_message, information=information, date=get_date())
 
     conversation_manager.save_conversation()
+
 
 @app.on_event("startup")
 async def startup() -> None:
     print("LangChain API is ready")
+
 
 @app.post("/chat")
 async def chat(request: ChatRequest) -> EventSourceResponse:

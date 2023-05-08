@@ -8,7 +8,7 @@ python-dotenv
 uvicorn
 tiktoken
 openai
-
+lark
 
 pytz
 faiss-cpu

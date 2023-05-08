@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-def get_date():
+def get_date(raw=False):
     JST = timezone(timedelta(hours=+9), "JST")
 
     weekday_ja = {
@@ -21,4 +21,7 @@ def get_date():
 
     date_str = f'{date_str} {weekday_ja_str} {time_str}'
 
-    return date_str, now
+    if raw:
+        return now
+    else:
+        return date_str
